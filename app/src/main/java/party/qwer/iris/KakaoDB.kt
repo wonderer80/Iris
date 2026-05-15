@@ -62,7 +62,7 @@ class KakaoDB {
         }
 
         if (sql == null) {
-            throw IllegalStateException("no table open_chat_member or friends")
+            return null
         }
 
         val result = runCatching {
