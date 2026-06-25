@@ -48,25 +48,15 @@ class KakaoDB {
 
 
     fun queryUserName(chatId: Long, userId: Long): String? {
-        val stringUserId = arrayOf(userId.toString())
-        val isOpenLink = (chatId and (2 shl 53)) != 0L;
-
-        val sql = when {
-            isOpenLink && hasTable(
-                "db2", "open_chat_member"
-            ) -> "SELECT nickname AS name, enc FROM db2.open_chat_member WHERE user_id = ?"
-
-            hasTable("db2", "friends") -> "SELECT name, enc FROM db2.friends WHERE id = ?"
-
-            else -> null
-        }
-
-        if (sql == null) {
+        if (!hasTable("db2", "open_chat_member")) {
             return null
         }
 
         val result = runCatching {
-            connection.rawQuery(sql, stringUserId).use { cursor ->
+            connection.rawQuery(
+                "SELECT nickname AS name, enc FROM db2.open_chat_member WHERE involved_chat_id = ? AND user_id = ?",
+                arrayOf(chatId.toString(), userId.toString())
+            ).use { cursor ->
                 cursor.firstOrNull {
                     getString(getColumnIndexOrThrow("name")) to getInt(getColumnIndexOrThrow("enc"))
                 }
