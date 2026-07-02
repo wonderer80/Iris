@@ -22,6 +22,10 @@ import java.io.File
 
 class Replier {
     companion object {
+        private const val IMAGE_SEND_TERMUX_DELAY_MS = 1500L
+        private const val TERMUX_PACKAGE_NAME = "com.termux"
+        private const val TERMUX_ACTIVITY_NAME = "com.termux.app.TermuxActivity"
+
         private val messageChannel = Channel<SendMessageRequest>(Channel.CONFLATED)
         private val coroutineScope = CoroutineScope(Dispatchers.IO)
         private var messageSenderJob: Job? = null
@@ -97,7 +101,10 @@ class Replier {
         }
 
 
-        fun sendPhoto(room: Long, base64ImageDataString: String) {
+        fun sendPhoto(
+            room: Long,
+            base64ImageDataString: String
+        ) {
             coroutineScope.launch {
                 messageChannel.send(SendMessageRequest {
                     sendPhotoInternal(
@@ -107,7 +114,10 @@ class Replier {
             }
         }
 
-        fun sendMultiplePhotos(room: Long, base64ImageDataStrings: List<String>) {
+        fun sendMultiplePhotos(
+            room: Long,
+            base64ImageDataStrings: List<String>
+        ) {
             coroutineScope.launch {
                 messageChannel.send(SendMessageRequest {
                     sendMultiplePhotosInternal(
@@ -117,11 +127,20 @@ class Replier {
             }
         }
 
-        private fun sendPhotoInternal(room: Long, base64ImageDataString: String) {
-            sendMultiplePhotosInternal(room, listOf(base64ImageDataString))
+        private fun sendPhotoInternal(
+            room: Long,
+            base64ImageDataString: String
+        ) {
+            sendMultiplePhotosInternal(
+                room,
+                listOf(base64ImageDataString)
+            )
         }
 
-        private fun sendMultiplePhotosInternal(room: Long, base64ImageDataStrings: List<String>) {
+        private fun sendMultiplePhotosInternal(
+            room: Long,
+            base64ImageDataStrings: List<String>
+        ) {
             val picDir = File(IMAGE_DIR_PATH).apply {
                 if (!exists()) {
                     mkdirs()
@@ -162,6 +181,8 @@ class Replier {
                 System.err.println("Error starting activity for sending multiple photos: $e")
                 throw e
             }
+
+            scheduleTermuxPostAction()
         }
 
 
@@ -174,6 +195,27 @@ class Replier {
                 data = uri
             }
             AndroidHiddenApi.broadcastIntent(mediaScanIntent)
+        }
+
+        private fun scheduleTermuxPostAction() {
+            coroutineScope.launch {
+                delay(IMAGE_SEND_TERMUX_DELAY_MS)
+
+                try {
+                    startTermuxActivity()
+                } catch (e: Exception) {
+                    System.err.println("Error bringing Termux to foreground after image reply: $e")
+                }
+            }
+        }
+
+        private fun startTermuxActivity() {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                component = ComponentName(TERMUX_PACKAGE_NAME, TERMUX_ACTIVITY_NAME)
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            }
+            AndroidHiddenApi.startActivity(intent)
         }
     }
 }
