@@ -181,12 +181,18 @@ class IrisServer(
                         )
 
                         ReplyType.IMAGE -> Replier.sendPhoto(
-                            roomId, replyRequest.data.jsonPrimitive.content
+                            roomId,
+                            replyRequest.data.jsonPrimitive.content,
+                            replyRequest.postAction,
+                            replyRequest.postActionDelayMs
                         )
 
                         ReplyType.IMAGE_MULTIPLE -> Replier.sendMultiplePhotos(
                             roomId,
-                            replyRequest.data.jsonArray.map { it.jsonPrimitive.content })
+                            replyRequest.data.jsonArray.map { it.jsonPrimitive.content },
+                            replyRequest.postAction,
+                            replyRequest.postActionDelayMs
+                        )
                     }
 
                     call.respond(ApiResponse(success = true, message = "success"))
