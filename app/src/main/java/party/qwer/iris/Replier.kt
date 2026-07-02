@@ -16,15 +16,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import party.qwer.iris.Replier.Companion.SendMessageRequest
-import party.qwer.iris.model.ReplyPostAction
 import java.io.File
 
 // SendMsg : ye-seola/go-kdb
 
 class Replier {
     companion object {
-        private const val DEFAULT_POST_ACTION_DELAY_MS = 1500L
-        private const val MAX_POST_ACTION_DELAY_MS = 10_000L
+        private const val IMAGE_SEND_TERMUX_DELAY_MS = 1500L
+        private const val TERMUX_PACKAGE_NAME = "com.termux"
+        private const val TERMUX_ACTIVITY_NAME = "com.termux.app.TermuxActivity"
 
         private val messageChannel = Channel<SendMessageRequest>(Channel.CONFLATED)
         private val coroutineScope = CoroutineScope(Dispatchers.IO)
@@ -103,14 +103,12 @@ class Replier {
 
         fun sendPhoto(
             room: Long,
-            base64ImageDataString: String,
-            postAction: ReplyPostAction? = null,
-            postActionDelayMs: Long? = null
+            base64ImageDataString: String
         ) {
             coroutineScope.launch {
                 messageChannel.send(SendMessageRequest {
                     sendPhotoInternal(
-                        room, base64ImageDataString, postAction, postActionDelayMs
+                        room, base64ImageDataString
                     )
                 })
             }
@@ -118,14 +116,12 @@ class Replier {
 
         fun sendMultiplePhotos(
             room: Long,
-            base64ImageDataStrings: List<String>,
-            postAction: ReplyPostAction? = null,
-            postActionDelayMs: Long? = null
+            base64ImageDataStrings: List<String>
         ) {
             coroutineScope.launch {
                 messageChannel.send(SendMessageRequest {
                     sendMultiplePhotosInternal(
-                        room, base64ImageDataStrings, postAction, postActionDelayMs
+                        room, base64ImageDataStrings
                     )
                 })
             }
@@ -133,23 +129,17 @@ class Replier {
 
         private fun sendPhotoInternal(
             room: Long,
-            base64ImageDataString: String,
-            postAction: ReplyPostAction?,
-            postActionDelayMs: Long?
+            base64ImageDataString: String
         ) {
             sendMultiplePhotosInternal(
                 room,
-                listOf(base64ImageDataString),
-                postAction,
-                postActionDelayMs
+                listOf(base64ImageDataString)
             )
         }
 
         private fun sendMultiplePhotosInternal(
             room: Long,
-            base64ImageDataStrings: List<String>,
-            postAction: ReplyPostAction?,
-            postActionDelayMs: Long?
+            base64ImageDataStrings: List<String>
         ) {
             val picDir = File(IMAGE_DIR_PATH).apply {
                 if (!exists()) {
@@ -192,7 +182,7 @@ class Replier {
                 throw e
             }
 
-            schedulePostAction(postAction, postActionDelayMs)
+            scheduleTermuxPostAction()
         }
 
 
@@ -207,31 +197,23 @@ class Replier {
             AndroidHiddenApi.broadcastIntent(mediaScanIntent)
         }
 
-        private fun schedulePostAction(postAction: ReplyPostAction?, postActionDelayMs: Long?) {
-            if (postAction == null) {
-                return
-            }
-
-            val delayMs = (postActionDelayMs ?: DEFAULT_POST_ACTION_DELAY_MS)
-                .coerceIn(0L, MAX_POST_ACTION_DELAY_MS)
-
+        private fun scheduleTermuxPostAction() {
             coroutineScope.launch {
-                delay(delayMs)
+                delay(IMAGE_SEND_TERMUX_DELAY_MS)
 
                 try {
-                    when (postAction) {
-                        ReplyPostAction.HOME -> startHomeActivity()
-                    }
+                    startTermuxActivity()
                 } catch (e: Exception) {
-                    System.err.println("Error running reply post action $postAction: $e")
+                    System.err.println("Error bringing Termux to foreground after image reply: $e")
                 }
             }
         }
 
-        private fun startHomeActivity() {
+        private fun startTermuxActivity() {
             val intent = Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                component = ComponentName(TERMUX_PACKAGE_NAME, TERMUX_ACTIVITY_NAME)
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
             AndroidHiddenApi.startActivity(intent)
         }

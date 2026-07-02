@@ -182,16 +182,12 @@ class IrisServer(
 
                         ReplyType.IMAGE -> Replier.sendPhoto(
                             roomId,
-                            replyRequest.data.jsonPrimitive.content,
-                            replyRequest.postAction,
-                            replyRequest.postActionDelayMs
+                            replyRequest.data.jsonPrimitive.content
                         )
 
                         ReplyType.IMAGE_MULTIPLE -> Replier.sendMultiplePhotos(
                             roomId,
-                            replyRequest.data.jsonArray.map { it.jsonPrimitive.content },
-                            replyRequest.postAction,
-                            replyRequest.postActionDelayMs
+                            replyRequest.data.jsonArray.map { it.jsonPrimitive.content }
                         )
                     }
 
